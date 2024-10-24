@@ -1,138 +1,90 @@
-import React from "react"; 
-import axios from "axios"; 
+import React from "react";
+import axios from "axios";
 
 class App extends React.Component { 
-	state = { 
-		details: [], 
-		user: "", 
-		quote: "", 
-	}; 
+    state = { 
+        quotes: [],     // Array to store fetched quotes
+        author: "",     // Input value for the author
+        quoteText: "",  // Input value for the quote text
+    }; 
 
-	componentDidMount() { 
-		let data; 
+    // Fetch quotes from the backend when the component mounts
+    componentDidMount() { 
+        axios.get("http://localhost:8000/quotes/") 
+            .then((res) => { 
+                this.setState({ quotes: res.data });
+            }) 
+            .catch((err) => console.log(err)); 
+    } 
 
-		axios 
-			.get("http://localhost:8000/wel/") 
-			.then((res) => { 
-				data = res.data; 
-				this.setState({ 
-					details: data, 
-				}); 
-			}) 
-			.catch((err) => {}); 
-	} 
+    // Handle input change for the form
+    handleInput = (e) => { 
+        this.setState({ [e.target.name]: e.target.value });
+    }; 
 
-	renderSwitch = (param) => { 
-		switch (param + 1) { 
-			case 1: 
-				return "primary "; 
-			case 2: 
-				return "secondary"; 
-			case 3: 
-				return "success"; 
-			case 4: 
-				return "danger"; 
-			case 5: 
-				return "warning"; 
-			case 6: 
-				return "info"; 
-			default: 
-				return "yellow"; 
-		} 
-	}; 
+    // Handle form submission and post the new quote
+    handleSubmit = (e) => { 
+        e.preventDefault(); 
 
-	handleInput = (e) => { 
-		this.setState({ 
-			[e.target.name]: e.target.value, 
-		}); 
-	}; 
+        axios.post("http://localhost:8000/quotes/", { 
+            name: this.state.author, 
+            detail: this.state.quoteText, 
+        }) 
+        .then(() => { 
+            this.setState({ author: "", quoteText: "" });
+            this.componentDidMount();  // Refetch quotes after submission
+        })
+        .catch((err) => console.log(err)); 
+    }; 
 
-	handleSubmit = (e) => { 
-		e.preventDefault(); 
+    render() { 
+        return ( 
+            <div className="container jumbotron"> 
+                <h1>Quote Submission</h1>
+                <form onSubmit={this.handleSubmit}> 
+                    <div className="input-group mb-3"> 
+                        <input 
+                            type="text" 
+                            className="form-control"
+                            placeholder="Author Name"
+                            value={this.state.author} 
+                            name="author"
+                            onChange={this.handleInput}
+                        /> 
+                    </div> 
 
-		axios 
-			.post("http://localhost:8000/wel/", { 
-				name: this.state.user, 
-				detail: this.state.quote, 
-			}) 
-			.then((res) => { 
-				this.setState({ 
-					user: "", 
-					quote: "", 
-				}); 
-			}) 
-			.catch((err) => {}); 
-	}; 
+                    <div className="input-group mb-3"> 
+                        <textarea 
+                            className="form-control"
+                            placeholder="Enter the quote"
+                            value={this.state.quoteText} 
+                            name="quoteText"
+                            onChange={this.handleInput}
+                        /> 
+                    </div> 
 
-	render() { 
-		return ( 
-			<div className="container jumbotron "> 
-				<form onSubmit={this.handleSubmit}> 
-					<div className="input-group mb-3"> 
-						<div className="input-group-prepend"> 
-							<span className="input-group-text"
-								id="basic-addon1"> 
-								{" "} 
-								Author{" "} 
-							</span> 
-						</div> 
-						<input type="text" className="form-control"
-							placeholder="Name of the Poet/Author"
-							aria-label="Username"
-							aria-describedby="basic-addon1"
-							value={this.state.user} name="user"
-							onChange={this.handleInput} /> 
-					</div> 
+                    <button type="submit" className="btn btn-primary"> 
+                        Submit Quote 
+                    </button> 
+                </form>
 
-					<div className="input-group mb-3"> 
-						<div className="input-group-prepend"> 
-							<span className="input-group-text"> 
-							Your Quote 
-							</span> 
-						</div> 
-						<textarea className="form-control "
-								aria-label="With textarea"
-								placeholder="Tell us what you think of ....."
-								value={this.state.quote} name="quote"
-								onChange={this.handleInput}> 
-						</textarea> 
-					</div> 
+                <hr />
 
-					<button type="submit" className="btn btn-primary mb-5"> 
-						Submit 
-					</button> 
-				</form> 
-
-				<hr 
-					style={{ 
-						color: "#000000", 
-						backgroundColor: "#000000", 
-						height: 0.5, 
-						borderColor: "#000000", 
-					}} 
-				/> 
-
-				{this.state.details.map((detail, id) => ( 
-					<div key={id}> 
-						<div className="card shadow-lg"> 
-							<div className={"bg-" + this.renderSwitch(id % 6) + 
-										" card-header"}>Quote {id + 1}</div> 
-							<div className="card-body"> 
-								<blockquote className={"text-" + this.renderSwitch(id % 6) + 
-												" blockquote mb-0"}> 
-									<h1> {detail.detail} </h1> 
-									<footer className="blockquote-footer"> 
-										{" "} 
-										<cite title="Source Title">{detail.name}</cite> 
-									</footer> 
-								</blockquote> 
-							</div> 
-						</div> 
-						<span className="border border-primary "></span> 
-					</div> 
-				))} 
-			</div> 
-		); 
-	} 
+                <h2>Submitted Quotes</h2>
+                {this.state.quotes.map((quote, id) => ( 
+                    <div key={id} className="card my-3"> 
+                        <div className="card-header">Quote {id + 1}</div> 
+                        <div className="card-body"> 
+                            <blockquote className="blockquote mb-0"> 
+                                <p>{quote.detail}</p>
+                                <footer className="blockquote-footer">{quote.name}</footer> 
+                            </blockquote> 
+                        </div> 
+                    </div> 
+                ))} 
+            </div> 
+        ); 
+    } 
 } 
-export default App; 
+
+export default App;
