@@ -1,4 +1,3 @@
-
 ---
 
 # React + Django REST Framework Base Project
@@ -140,72 +139,93 @@ BaseProject/
 
 ### Models
 
-In `core/models.py`, define the data model:
+In `core/models.py`, define the data model that stores user-submitted quotes:
 
 ```python
 from django.db import models
 
-class React(models.Model):
-    name = models.CharField(max_length=100)
-    detail = models.TextField()
+# Model representing a quote submitted by users
+class Quote(models.Model): 
+    name = models.CharField(max_length=100)  # Name of the user/author
+    detail = models.TextField()              # Quote text
 ```
 
+#### **Explanation:**
+- **`Quote` Model:** This model defines the structure for the data to be stored in the database. It contains two fields: 
+  - `name` (stores the name of the person submitting the quote).
+  - `detail` (stores the text of the quote itself).
+  
 ### Serializers
 
-In `core/serializers.py`, define the serializer to handle API data:
+In `core/serializers.py`, define the serializer to convert model instances into JSON for the API response:
 
 ```python
 from rest_framework import serializers
-from .models import React
+from .models import Quote
 
-class ReactSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = React
+# Serializer for the Quote model
+class QuoteSerializer(serializers.ModelSerializer): 
+    class Meta: 
+        model = Quote
         fields = ['name', 'detail']
 ```
 
+#### **Explanation:**
+- **`QuoteSerializer`**: Serializers in Django REST Framework are responsible for converting the `Quote` model instances into JSON format, which can be sent as HTTP responses. This serializer includes all fields from the `Quote` model (`name` and `detail`).
+
 ### Views
 
-In `core/views.py`, define the API views to handle GET and POST requests:
+In `core/views.py`, define the API views to handle GET and POST requests for quotes:
 
 ```python
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import React
-from .serializers import ReactSerializer
+from .models import Quote
+from .serializers import QuoteSerializer
 
-class ReactView(APIView):
-    serializer_class = ReactSerializer
+# API view to handle retrieving and creating quotes
+class QuoteView(APIView):
+    serializer_class = QuoteSerializer
 
-    def get(self, request):
-        details = [{"name": obj.name, "detail": obj.detail} for obj in React.objects.all()]
-        return Response(details)
+    # Handle GET requests to retrieve all quotes
+    def get(self, request): 
+        quotes = [{"name": obj.name, "detail": obj.detail} for obj in Quote.objects.all()]
+        return Response(quotes)
 
-    def post(self, request):
-        serializer = ReactSerializer(data=request.data)
+    # Handle POST requests to create a new quote
+    def post(self, request): 
+        serializer = QuoteSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data)
 ```
 
+#### **Explanation:**
+- **`QuoteView` (APIView):** This class-based view handles two types of HTTP requests:
+  - **`get(request)`:** This method is called when a GET request is made to the API. It retrieves all quotes from the database, formats them into a list of dictionaries, and returns them as a JSON response using `Response()`.
+  - **`post(request)`:** This method is called when a POST request is made to the API to submit a new quote. It takes the data from the request, validates it using `QuoteSerializer`, and saves the data if valid.
+
 ### URLs
 
-In `BaseProject/urls.py`, add the following routes:
+In `BaseProject/urls.py`, define the URL routing for the API endpoints:
 
 ```python
 from django.contrib import admin
 from django.urls import path
-from core.views import ReactView
+from core.views import QuoteView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('wel/', ReactView.as_view(), name='react_view'),
+    path('quotes/', QuoteView.as_view(), name='quote_view'),
 ]
 ```
 
+#### **Explanation:**
+- **URL Routing:** The `path()` function maps the URL `/quotes/` to the `QuoteView`. This means when users visit `http://localhost:8000/quotes/`, they can either view all quotes (via a GET request) or submit a new one (via a POST request).
+
 ### Settings
 
-In `BaseProject/settings.py`, configure the REST Framework and CORS settings:
+In `BaseProject/settings.py`, configure the Django REST Framework and CORS settings:
 
 ```python
 REST_FRAMEWORK = {
@@ -217,6 +237,10 @@ REST_FRAMEWORK = {
 CORS_ORIGIN_ALLOW_ALL = True
 ```
 
+#### **Explanation:**
+- **REST Framework Settings:** The `DEFAULT_PERMISSION_CLASSES` is set to `AllowAny`, meaning any user (authenticated or not) can access the API endpoints.
+- **CORS Settings:** `CORS_ORIGIN_ALLOW_ALL = True` allows cross-origin requests from any domain, which is required for the React frontend to interact with the Django API.
+
 ---
 
 ## Frontend (React)
@@ -227,47 +251,94 @@ In the `src/App.js` file of your React app, implement the component to interact 
 import React from "react";
 import axios from "axios";
 
-class App extends React.Component {
-    state = { details: [], user: "", quote: "" };
+class App extends React.Component { 
+    state = { 
+        quotes: [],     // Array to store fetched quotes
+        author: "",     // Input value for the author
+        quoteText: "",  // Input value for the quote text
+    }; 
 
-    componentDidMount() {
-        axios.get("http://localhost:8000/wel/")
-            .then(res => this.setState({ details: res.data }))
-            .catch(err => console.log(err));
-    }
+    // Fetch quotes from the backend when the component mounts
+    componentDidMount() { 
+        axios.get("http://localhost:8000/quotes/") 
+            .then((res) => { 
+                this.setState({ quotes: res.data });
+            }) 
+            .catch((err) => console.log(err)); 
+    } 
 
-    handleInput = (e) => {
+    // Handle input change for the form
+    handleInput = (e) => { 
         this.setState({ [e.target.name]: e.target.value });
-    };
+    }; 
 
-    handleSubmit = (e) => {
-        e.preventDefault();
-        axios.post("http://localhost:8000/wel/", {
-            name: this.state.user,
-            detail: this.state.quote
-        }).then(() => this.setState({ user: "", quote: "" }));
-    };
+    // Handle form submission and post the new quote
+    handleSubmit = (e) => { 
+        e.preventDefault(); 
 
-    render() {
-        return (
-            <div>
-                <form onSubmit={this.handleSubmit}>
-                    <input name="user" value={this.state.user} onChange={this.handleInput} />
-                    <input name="quote" value={this.state.quote} onChange={this.handleInput} />
-                    <button type="submit">Submit</button>
-                </form>
-                <ul>
-                    {this.state.details.map((detail, index) => (
-                        <li key={index}>{detail.name}: {detail.detail}</li>
-                    ))}
-                </ul>
-            </div>
-        );
-    }
+        axios.post("http://localhost:8000/quotes/", { 
+            name: this.state.author, 
+            detail: this.state.quoteText, 
+        }) 
+        .then(() => { 
+            this.setState({ author: "", quoteText: "" });
+            this.componentDidMount();  // Refetch quotes after submission
+        })
+        .catch((err) => console.log(err)); 
+    }; 
+
+    render() { 
+        return ( 
+            <div className="container jumbotron"> 
+                <h1>Quote Submission</h1>
+                <form onSubmit={this.handleSubmit}> 
+                    <div className="input-group mb-3"> 
+                        <input 
+                            type="text" 
+                            className="form-control"
+                            placeholder="Author Name"
+                            value={this.state.author} 
+                            name="author"
+                            onChange={this.handleInput}
+                        /> 
+                    </div> 
+
+                    <div className="input-group mb-3">
+
+ 
+                        <input 
+                            type="text" 
+                            className="form-control"
+                            placeholder="Quote"
+                            value={this.state.quoteText} 
+                            name="quoteText"
+                            onChange={this.handleInput}
+                        /> 
+                    </div> 
+
+                    <button className="btn btn-primary" type="submit">Submit</button>
+                </form> 
+
+                <ul className="mt-4"> 
+                    {this.state.quotes.map((quote, index) => ( 
+                        <li key={index}>
+                            <strong>{quote.name}:</strong> {quote.detail}
+                        </li>
+                    ))} 
+                </ul> 
+            </div> 
+        ); 
+    } 
 }
 
 export default App;
 ```
+
+#### **Explanation:**
+- **Component State:** The `state` holds the list of quotes fetched from the backend, and it also keeps track of the input values for author and quote.
+- **`componentDidMount`:** This lifecycle method is used to fetch the quotes when the component is first rendered.
+- **`handleInput`:** This function is called whenever the user types into the input fields. It updates the state with the new input values.
+- **`handleSubmit`:** This function is called when the form is submitted. It sends a POST request to the backend to create a new quote and then refetches the quotes to update the list displayed.
 
 ---
 
